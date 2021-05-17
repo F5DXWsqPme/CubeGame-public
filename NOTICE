@@ -1,0 +1,13 @@
+This project uses Vulkan (https://www.khronos.org/vulkan/) available under MIT license.
+
+This project uses volk (https://github.com/zeux/volk) available under MIT license.
+
+This project uses stb (https://github.com/nothings/stb).
+
+This project uses glfw (https://www.glfw.org/) available under zlib/libpng license.
+
+This project uses glm (https://github.com/g-truc/glm) available under The Happy Bunny license.
+
+This project uses FastNoiseLite (https://github.com/Auburn/FastNoiseLite) availible under MIT license.
+
+This project uses zlib (http://www.zlib.net/) availible under zlib license.
