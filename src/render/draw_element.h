@@ -17,6 +17,12 @@ public:
    */
   virtual VkCommandBuffer GetCommandBuffer( VOID ) = 0;
 
+  /**
+   * \brief Get secondary command buffer for drawing opaque objects
+   * \return Command buffer
+   */
+  virtual VkCommandBuffer GetTransparentCommandBuffer( VOID ) = 0;
+
   ///**
   // * \brief Update WVP function
   // */

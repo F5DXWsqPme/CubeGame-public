@@ -20,6 +20,15 @@ public:
   /** Chunk size for Z-coordinate */
   static constexpr UINT ChunkSizeZ = 16;
 
+  /** Maximal number of borders */
+  const static UINT64 MaxNumberOfBorders;
+
+  /** Maximal number of indices */
+  const static UINT64 MaxNumberOfIndices;
+
+  /** Maximal number of vertices */
+  const static UINT64 MaxNumberOfVertices;
+
   /** Size of vertex buffer for chunk */
   const static UINT64 VertexBufferSize;
 
@@ -39,6 +48,12 @@ public:
    * \return Secondary command buffer
    */
   VkCommandBuffer GetCommandBuffer( VOID ) override;
+
+  /**
+   * \brief Get secondary command buffer for drawing opaque objects
+   * \return Command buffer
+   */
+  VkCommandBuffer GetTransparentCommandBuffer( VOID ) override;
 
   ///**
   // * \brief Update WVP function
@@ -220,6 +235,9 @@ private:
   /** Command buffer */
   VkCommandBuffer CommandBufferId;
 
+  /** Command buffer for opaque objects */
+  VkCommandBuffer TransparentCommandBufferId;
+
   /** Reference to render */
   render &Render;
 
@@ -231,6 +249,15 @@ private:
 
   /** Number of borders */
   UINT64 NumberOfBorders;
+
+  /** Number of vertices */
+  UINT32 NumberOfTransparentVertices;
+
+  /** Number of indices */
+  UINT64 NumberOfTransparentIndices;
+
+  /** Number of borders */
+  UINT64 NumberOfTransparentBorders;
 
   /** mutex for blocks and indices information */
   std::mutex MetaInfoMutex;
@@ -277,11 +304,17 @@ private:
   /** Indices to blocks table */
   std::vector<INDEX_INFORMATION> IndicesInfo;
 
+  /** Indices to blocks table */
+  std::vector<INDEX_INFORMATION> TransparentIndicesInfo;
+
   /** Chunk offset x */
   DBL ChunkOffsetX;
 
   /** Chunk offset z */
   DBL ChunkOffsetZ;
+
+  /** Chunk blocks */
+  const BLOCK *ChunkBlocks = nullptr;
 };
 
 #endif /* __chunk_geometry_h_ */

@@ -33,7 +33,7 @@ INT main( INT ArgC, CHAR **ArgV )
 
     VkApp.InitApplication(0, Surface.GetSurfaceId());
 
-    INT RenderDistance = 15;
+    INT RenderDistance = 5;
     INT MaxNumberOfChunks = (RenderDistance * 2 + 1) * (RenderDistance * 2 + 1);
 
     render_synchronization Synchronization;
@@ -45,7 +45,7 @@ INT main( INT ArgC, CHAR **ArgV )
       sizeof(uniform_buffer),
       Synchronization);
 
-    render Render(VkApp, Surface, MaxNumberOfChunks, MemoryManager, Synchronization);
+    render Render(VkApp, Surface, MaxNumberOfChunks * 2, MemoryManager, Synchronization);
 
     player Player(Render, Window);
 

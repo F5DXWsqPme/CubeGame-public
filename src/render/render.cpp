@@ -890,6 +890,9 @@ VOID render::AddDrawElement( draw_element *Element )
   for (draw_element *Element : DrawElements)
     SecondaryCommandBuffersVector.push_back(Element->GetCommandBuffer());
 
+  for (draw_element *Element : DrawElements)
+    SecondaryCommandBuffersVector.push_back(Element->GetTransparentCommandBuffer());
+
   UpdateCommandBuffers();
 }
 
@@ -924,6 +927,9 @@ VOID render::DeleteDrawElement( draw_element *Element )
 
   for (draw_element *Element : DrawElements)
     SecondaryCommandBuffersVector.push_back(Element->GetCommandBuffer());
+
+  for (draw_element *Element : DrawElements)
+    SecondaryCommandBuffersVector.push_back(Element->GetTransparentCommandBuffer());
 
   UpdateCommandBuffers();
 }

@@ -9,13 +9,25 @@
 #include "game_objects/block_type.h"
 #include "vulkan_wrappers/command_buffer.h"
 
+/** Maximal number of indices */
+const UINT64 chunk_geometry::MaxNumberOfBorders =
+  chunk::ChunkSizeX * chunk::ChunkSizeY * chunk::ChunkSizeZ * 3 / 32; // TODO: check overflow
+
+/** Maximal number of indices */
+const UINT64 chunk_geometry::MaxNumberOfIndices =
+  chunk_geometry::MaxNumberOfBorders * 6; // TODO: check overflow
+
+/** Maximal number of vertices */
+const UINT64 chunk_geometry::MaxNumberOfVertices =
+  chunk_geometry::MaxNumberOfBorders * 4; // TODO: check overflow
+
 /** Size of vertex buffer for chunk */
 const UINT64 chunk_geometry::VertexBufferSize =
-  sizeof(VERTEX) * chunk::ChunkSizeX * chunk::ChunkSizeY * chunk::ChunkSizeZ * 3 * 4 / 32; // TODO: check overflow
+  sizeof(VERTEX) * chunk_geometry::MaxNumberOfVertices; // TODO: check overflow
 
 /** Size of index buffer for chunk */
 const UINT64 chunk_geometry::IndexBufferSize =
-  sizeof(INT32) * chunk::ChunkSizeX * chunk::ChunkSizeY * chunk::ChunkSizeZ * 3 * 6 / 32; // TODO: check overflow
+  sizeof(UINT32) * chunk_geometry::MaxNumberOfIndices; // TODO: check overflow
 
 /**
  * \brief Chunk display class constructor
@@ -55,6 +67,7 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
   std::vector<UINT32> WriteIndices(IndexBufferSize / sizeof(UINT32));
 
   UINT64 CurBorder = 0;
+  UINT64 CurTransparentBorder = 0;
 
   {
     std::lock_guard<std::mutex> Lock(MetaInfoMutex);
@@ -80,12 +93,23 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
 
             CurBlockInfo.LeftOffset = CurBorder;
 
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+            {
+              CurTransparentBorder++;
+              CurVertexOffset = MaxNumberOfVertices - CurTransparentBorder * 4;
+              CurIndexOffset = MaxNumberOfIndices - CurTransparentBorder * 6;
+              CurBlockInfo.LeftOffset = MaxNumberOfBorders - CurTransparentBorder;
+            }
+
             INDEX_INFORMATION CurIndex;
 
             CurIndex.BlockId = BlockId;
             CurIndex.Offset = &BLOCK_INFORMATION::LeftOffset;
 
-            IndicesInfo.push_back(CurIndex);
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+              TransparentIndicesInfo.push_back(CurIndex);
+            else
+              IndicesInfo.push_back(CurIndex);
 
             if (CurBlock.Direction.x != 0)
             {
@@ -129,7 +153,8 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
             WriteIndices[CurIndexOffset + 4] = CurVertexOffset + 2;
             WriteIndices[CurIndexOffset + 5] = CurVertexOffset + 3;
 
-            CurBorder++;
+            if (CurType.Alpha >= 1 - FLT_EPSILON)
+              CurBorder++;
           }
 
           if (x == ChunkSizeX - 1 ||
@@ -142,12 +167,23 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
 
             CurBlockInfo.RightOffset = CurBorder;
 
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+            {
+              CurTransparentBorder++;
+              CurVertexOffset = MaxNumberOfVertices - CurTransparentBorder * 4;
+              CurIndexOffset = MaxNumberOfIndices - CurTransparentBorder * 6;
+              CurBlockInfo.RightOffset = MaxNumberOfBorders - CurTransparentBorder;
+            }
+
             INDEX_INFORMATION CurIndex;
 
             CurIndex.BlockId = BlockId;
             CurIndex.Offset = &BLOCK_INFORMATION::RightOffset;
 
-            IndicesInfo.push_back(CurIndex);
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+              TransparentIndicesInfo.push_back(CurIndex);
+            else
+              IndicesInfo.push_back(CurIndex);
 
             if (CurBlock.Direction.x != 0)
             {
@@ -191,7 +227,8 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
             WriteIndices[CurIndexOffset + 4] = CurVertexOffset + 2;
             WriteIndices[CurIndexOffset + 5] = CurVertexOffset + 3;
 
-            CurBorder++;
+            if (CurType.Alpha >= 1 - FLT_EPSILON)
+              CurBorder++;
           }
 
           if (y == 0 || BLOCK_TYPE::Table[Blocks[z * (UINT64)ChunkSizeY * ChunkSizeX + (y - 1) * (UINT64)ChunkSizeX +
@@ -203,13 +240,24 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
 
             CurBlockInfo.DownOffset = CurBorder;
 
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+            {
+              CurTransparentBorder++;
+              CurVertexOffset = MaxNumberOfVertices - CurTransparentBorder * 4;
+              CurIndexOffset = MaxNumberOfIndices - CurTransparentBorder * 6;
+              CurBlockInfo.DownOffset = MaxNumberOfBorders - CurTransparentBorder;
+            }
+
             INDEX_INFORMATION CurIndex;
 
             CurIndex.BlockId = BlockId;
             CurIndex.Offset = &BLOCK_INFORMATION::DownOffset;
 
-            IndicesInfo.push_back(CurIndex);
-
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+              TransparentIndicesInfo.push_back(CurIndex);
+            else
+              IndicesInfo.push_back(CurIndex);
+            
             if (CurBlock.Direction.y != 0)
             {
               if (CurBlock.Direction.y == -1)
@@ -252,7 +300,8 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
             WriteIndices[CurIndexOffset + 4] = CurVertexOffset + 2;
             WriteIndices[CurIndexOffset + 5] = CurVertexOffset + 3;
 
-            CurBorder++;
+            if (CurType.Alpha >= 1 - FLT_EPSILON)
+              CurBorder++;
           }
 
           if (y == ChunkSizeY - 1 ||
@@ -265,13 +314,24 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
 
             CurBlockInfo.UpOffset = CurBorder;
 
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+            {
+              CurTransparentBorder++;
+              CurVertexOffset = MaxNumberOfVertices - CurTransparentBorder * 4;
+              CurIndexOffset = MaxNumberOfIndices - CurTransparentBorder * 6;
+              CurBlockInfo.UpOffset = MaxNumberOfBorders - CurTransparentBorder;
+            }
+
             INDEX_INFORMATION CurIndex;
 
             CurIndex.BlockId = BlockId;
             CurIndex.Offset = &BLOCK_INFORMATION::UpOffset;
 
-            IndicesInfo.push_back(CurIndex);
-
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+              TransparentIndicesInfo.push_back(CurIndex);
+            else
+              IndicesInfo.push_back(CurIndex);
+            
             if (CurBlock.Direction.y != 0)
             {
               if (CurBlock.Direction.y == 1)
@@ -314,7 +374,8 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
             WriteIndices[CurIndexOffset + 4] = CurVertexOffset + 2;
             WriteIndices[CurIndexOffset + 5] = CurVertexOffset + 3;
 
-            CurBorder++;
+            if (CurType.Alpha >= 1 - FLT_EPSILON)
+              CurBorder++;
           }
 
           if (z == 0 || BLOCK_TYPE::Table[Blocks[(z - 1) * (UINT64)ChunkSizeY * ChunkSizeX + y * (UINT64)ChunkSizeX +
@@ -326,13 +387,24 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
 
             CurBlockInfo.BackOffset = CurBorder;
 
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+            {
+              CurTransparentBorder++;
+              CurVertexOffset = MaxNumberOfVertices - CurTransparentBorder * 4;
+              CurIndexOffset = MaxNumberOfIndices - CurTransparentBorder * 6;
+              CurBlockInfo.BackOffset = MaxNumberOfBorders - CurTransparentBorder;
+            }
+
             INDEX_INFORMATION CurIndex;
 
             CurIndex.BlockId = BlockId;
             CurIndex.Offset = &BLOCK_INFORMATION::BackOffset;
 
-            IndicesInfo.push_back(CurIndex);
-
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+              TransparentIndicesInfo.push_back(CurIndex);
+            else
+              IndicesInfo.push_back(CurIndex);
+            
             if (CurBlock.Direction.z != 0)
             {
               if (CurBlock.Direction.z == -1)
@@ -384,7 +456,8 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
             WriteIndices[CurIndexOffset + 4] = CurVertexOffset + 2;
             WriteIndices[CurIndexOffset + 5] = CurVertexOffset + 3;
 
-            CurBorder++;
+            if (CurType.Alpha >= 1 - FLT_EPSILON)
+              CurBorder++;
           }
 
           if (z == ChunkSizeZ - 1 ||
@@ -397,13 +470,24 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
 
             CurBlockInfo.FrontOffset = CurBorder;
 
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+            {
+              CurTransparentBorder++;
+              CurVertexOffset = MaxNumberOfVertices - CurTransparentBorder * 4;
+              CurIndexOffset = MaxNumberOfIndices - CurTransparentBorder * 6;
+              CurBlockInfo.FrontOffset = MaxNumberOfBorders - CurTransparentBorder;
+            }
+
             INDEX_INFORMATION CurIndex;
 
             CurIndex.BlockId = BlockId;
             CurIndex.Offset = &BLOCK_INFORMATION::FrontOffset;
 
-            IndicesInfo.push_back(CurIndex);
-
+            if (CurType.Alpha < 1 - FLT_EPSILON)
+              TransparentIndicesInfo.push_back(CurIndex);
+            else
+              IndicesInfo.push_back(CurIndex);
+            
             if (CurBlock.Direction.z != 0)
             {
               if (CurBlock.Direction.z == 1)
@@ -455,7 +539,8 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
             WriteIndices[CurIndexOffset + 4] = CurVertexOffset + 2;
             WriteIndices[CurIndexOffset + 5] = CurVertexOffset + 3;
 
-            CurBorder++;
+            if (CurType.Alpha >= 1 - FLT_EPSILON)
+              CurBorder++;
           }
         }
   }
@@ -468,17 +553,28 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
   NumberOfIndices = 6 * CurBorder;
   NumberOfBorders = CurBorder;
 
-  if (NumberOfIndices == 0)
+  NumberOfTransparentVertices = 4 * CurTransparentBorder;
+  NumberOfTransparentIndices = 6 * CurTransparentBorder;
+  NumberOfTransparentBorders = CurTransparentBorder;
+
+  {
+    INT64 TransparentIndexPostOffset = MaxNumberOfVertices - NumberOfTransparentVertices;
+
+    for (INT64 i = 0; i < NumberOfTransparentIndices; i++)
+      WriteIndices[MaxNumberOfIndices - i - 1] -= TransparentIndexPostOffset;
+  }
+
+  if (NumberOfIndices == 0 && NumberOfTransparentIndices == 0)
   {
     std::cout << "Empty chunk-mb its error\n" << std::endl;
   }
   else
   {
-    BYTE *WriteIndexMemory = Render.MemoryManager.GetMemoryForWriting(sizeof(UINT32) * NumberOfIndices,
+    BYTE *WriteIndexMemory = Render.MemoryManager.GetMemoryForWriting(IndexBufferSize,
                                                                       IndexBufferOffset, IndexMemory,
                                                                       Render.MemoryManager.NeedCopyIndex);
 
-    memcpy(WriteIndexMemory, WriteIndices.data(), sizeof(UINT32) * NumberOfIndices);
+    memcpy(WriteIndexMemory, WriteIndices.data(), IndexBufferSize);
 
     Render.MemoryManager.PushMemory(IndexBufferSize, IndexBufferOffset, IndexMemory, IndexBuffer,
                                     Render.MemoryManager.NeedCopyIndex, VK_ACCESS_INDEX_READ_BIT,
@@ -486,6 +582,7 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
   }
 
   CommandBufferId = Render.GetSecondaryCommandBuffer();
+  TransparentCommandBufferId = Render.GetSecondaryCommandBuffer();
 
   {
     std::lock_guard<std::mutex> Lock(Render.Synchronization.RenderMutex);
@@ -508,63 +605,125 @@ VOID chunk_geometry::RemoveUpBorder( const glm::ivec3 &BlockPos )
   if (BlocksInfo[BlockInd].UpOffset == -1)
     return;
 
-  if (BlocksInfo[BlockInd].UpOffset == NumberOfBorders - 1)
+  if (BlocksInfo[BlockInd].UpOffset < NumberOfBorders)
   {
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
-    IndicesInfo.pop_back();
+    if (BlocksInfo[BlockInd].UpOffset == NumberOfBorders - 1)
+    {
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+      IndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer, Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].UpOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      //assert(NumberOfBorders * 4 == NumberOfVertices);
+      //assert(NumberOfBorders * 6 == NumberOfIndices);
+      //std::cout << "RMUp (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].UpOffset * 6 << "\n" << std::endl;
+
+      BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*
+      IndicesInfo[NumberOfBorders - 1].Offset = BlocksInfo[BlockInd].UpOffset;
+      std::swap(IndicesInfo[BlocksInfo[BlockInd].UpOffset], IndicesInfo[NumberOfBorders - 1]);
+      IndicesInfo.pop_back();
+
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+    }
   }
   else
   {
-    //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
-    //                                      Render.MemoryManager.IndexBuffer,
-    //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
-    //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
-    //                                      6 * sizeof(UINT32),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+    if (BlocksInfo[BlockInd].UpOffset == MaxNumberOfBorders - NumberOfTransparentBorders)
+    {
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+      TransparentIndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
-                                          Render.MemoryManager.VertexBuffer,
-                                          VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
-                                          VertexBufferOffset + BlocksInfo[BlockInd].UpOffset * 4 * sizeof(VERTEX),
-                                          4 * sizeof(VERTEX),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex);
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer, Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (MaxNumberOfVertices - NumberOfTransparentVertices) * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].UpOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    //assert(NumberOfBorders * 4 == NumberOfVertices);
-    //assert(NumberOfBorders * 6 == NumberOfIndices);
-    //std::cout << "RMUp (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].UpOffset * 6 << "\n" << std::endl;
+      BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
+      TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].UpOffset;
+      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].UpOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      TransparentIndicesInfo.pop_back();
 
-    BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
-      BlocksInfo[BlockInd].UpOffset;
-    std::swap(IndicesInfo[BlocksInfo[BlockInd].UpOffset], IndicesInfo[NumberOfBorders - 1]);
-    IndicesInfo.pop_back();
-
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+    }
   }
 
   BlocksInfo[BlockInd].UpOffset = -1;
@@ -582,63 +741,124 @@ VOID chunk_geometry::RemoveDownBorder( const glm::ivec3 &BlockPos )
   if (BlocksInfo[BlockInd].DownOffset == -1)
     return;
 
-  if (BlocksInfo[BlockInd].DownOffset == NumberOfBorders - 1)
+  if (BlocksInfo[BlockInd].DownOffset < NumberOfBorders)
   {
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
-    IndicesInfo.pop_back();
+    if (BlocksInfo[BlockInd].DownOffset == NumberOfBorders - 1)
+    {
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+      IndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].DownOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
+                                            Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].DownOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      //assert(NumberOfBorders * 4 == NumberOfVertices);
+      //assert(NumberOfBorders * 6 == NumberOfIndices);
+      //std::cout << "RMDown (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].DownOffset * 6 << "\n" << std::endl;
+
+      BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
+        BlocksInfo[BlockInd].DownOffset;
+      std::swap(IndicesInfo[BlocksInfo[BlockInd].DownOffset], IndicesInfo[NumberOfBorders - 1]);
+      IndicesInfo.pop_back();
+
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+    }
   }
   else
   {
-    //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
-    //                                      Render.MemoryManager.IndexBuffer,
-    //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
-    //                                      IndexBufferOffset + BlocksInfo[BlockInd].DownOffset * 6 * sizeof(UINT32),
-    //                                      6 * sizeof(UINT32),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+    if (BlocksInfo[BlockInd].DownOffset == MaxNumberOfBorders - NumberOfTransparentBorders)
+    {
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+      TransparentIndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
-                                          Render.MemoryManager.VertexBuffer,
-                                          VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
-                                          VertexBufferOffset + BlocksInfo[BlockInd].DownOffset * 4 * sizeof(VERTEX),
-                                          4 * sizeof(VERTEX),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex);
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer, Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (MaxNumberOfVertices - NumberOfTransparentVertices) * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].DownOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    //assert(NumberOfBorders * 4 == NumberOfVertices);
-    //assert(NumberOfBorders * 6 == NumberOfIndices);
-    //std::cout << "RMDown (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].DownOffset * 6 << "\n" << std::endl;
+      BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
+      TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].DownOffset;
+      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].DownOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      TransparentIndicesInfo.pop_back();
 
-    BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
-      BlocksInfo[BlockInd].DownOffset;
-    std::swap(IndicesInfo[BlocksInfo[BlockInd].DownOffset], IndicesInfo[NumberOfBorders - 1]);
-    IndicesInfo.pop_back();
-
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+    }
   }
 
   BlocksInfo[BlockInd].DownOffset = -1;
@@ -656,63 +876,124 @@ VOID chunk_geometry::RemoveRightBorder( const glm::ivec3 &BlockPos )
   if (BlocksInfo[BlockInd].RightOffset == -1)
     return;
 
-  if (BlocksInfo[BlockInd].RightOffset == NumberOfBorders - 1)
+  if (BlocksInfo[BlockInd].RightOffset < NumberOfBorders)
   {
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
-    IndicesInfo.pop_back();
+    if (BlocksInfo[BlockInd].RightOffset == NumberOfBorders - 1)
+    {
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+      IndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].RightOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
+                                            Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].RightOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      //assert(NumberOfBorders * 4 == NumberOfVertices);
+      //assert(NumberOfBorders * 6 == NumberOfIndices);
+      //std::cout << "RMRight (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].RightOffset * 6 << "\n" << std::endl;
+
+      BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
+        BlocksInfo[BlockInd].RightOffset;
+      std::swap(IndicesInfo[BlocksInfo[BlockInd].RightOffset], IndicesInfo[NumberOfBorders - 1]);
+      IndicesInfo.pop_back();
+
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+    }
   }
   else
   {
-    //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
-    //                                      Render.MemoryManager.IndexBuffer,
-    //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
-    //                                      IndexBufferOffset + BlocksInfo[BlockInd].RightOffset * 6 * sizeof(UINT32),
-    //                                      6 * sizeof(UINT32),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+    if (BlocksInfo[BlockInd].RightOffset == MaxNumberOfBorders - NumberOfTransparentBorders)
+    {
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+      TransparentIndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
-                                          Render.MemoryManager.VertexBuffer,
-                                          VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
-                                          VertexBufferOffset + BlocksInfo[BlockInd].RightOffset * 4 * sizeof(VERTEX),
-                                          4 * sizeof(VERTEX),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex);
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer, Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (MaxNumberOfVertices - NumberOfTransparentVertices) * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].RightOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    //assert(NumberOfBorders * 4 == NumberOfVertices);
-    //assert(NumberOfBorders * 6 == NumberOfIndices);
-    //std::cout << "RMRight (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].RightOffset * 6 << "\n" << std::endl;
+      BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
+      TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].RightOffset;
+      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].RightOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      TransparentIndicesInfo.pop_back();
 
-    BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
-      BlocksInfo[BlockInd].RightOffset;
-    std::swap(IndicesInfo[BlocksInfo[BlockInd].RightOffset], IndicesInfo[NumberOfBorders - 1]);
-    IndicesInfo.pop_back();
-
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+    }
   }
 
   BlocksInfo[BlockInd].RightOffset = -1;
@@ -730,63 +1011,124 @@ VOID chunk_geometry::RemoveLeftBorder( const glm::ivec3 &BlockPos )
   if (BlocksInfo[BlockInd].LeftOffset == -1)
     return;
 
-  if (BlocksInfo[BlockInd].LeftOffset == NumberOfBorders - 1)
+  if (BlocksInfo[BlockInd].LeftOffset < NumberOfBorders)
   {
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
-    IndicesInfo.pop_back();
+    if (BlocksInfo[BlockInd].LeftOffset == NumberOfBorders - 1)
+    {
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+      IndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].LeftOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
+                                            Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].LeftOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      //assert(NumberOfBorders * 4 == NumberOfVertices);
+      //assert(NumberOfBorders * 6 == NumberOfIndices);
+      //std::cout << "RMLeft (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].LeftOffset * 6 << "\n" << std::endl;
+
+      BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
+        BlocksInfo[BlockInd].LeftOffset;
+      std::swap(IndicesInfo[BlocksInfo[BlockInd].LeftOffset], IndicesInfo[NumberOfBorders - 1]);
+      IndicesInfo.pop_back();
+
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+    }
   }
   else
   {
-    //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
-    //                                      Render.MemoryManager.IndexBuffer,
-    //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
-    //                                      IndexBufferOffset + BlocksInfo[BlockInd].LeftOffset * 6 * sizeof(UINT32),
-    //                                      6 * sizeof(UINT32),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+    if (BlocksInfo[BlockInd].LeftOffset == MaxNumberOfBorders - NumberOfTransparentBorders)
+    {
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+      TransparentIndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
-                                          Render.MemoryManager.VertexBuffer,
-                                          VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
-                                          VertexBufferOffset + BlocksInfo[BlockInd].LeftOffset * 4 * sizeof(VERTEX),
-                                          4 * sizeof(VERTEX),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex);
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer, Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (MaxNumberOfVertices - NumberOfTransparentVertices) * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].LeftOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    //assert(NumberOfBorders * 4 == NumberOfVertices);
-    //assert(NumberOfBorders * 6 == NumberOfIndices);
-    //std::cout << "RMLeft (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].LeftOffset * 6 << "\n" << std::endl;
+      BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
+      TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].LeftOffset;
+      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].LeftOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      TransparentIndicesInfo.pop_back();
 
-    BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
-      BlocksInfo[BlockInd].LeftOffset;
-    std::swap(IndicesInfo[BlocksInfo[BlockInd].LeftOffset], IndicesInfo[NumberOfBorders - 1]);
-    IndicesInfo.pop_back();
-
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+    }
   }
 
   BlocksInfo[BlockInd].LeftOffset = -1;
@@ -804,63 +1146,124 @@ VOID chunk_geometry::RemoveFrontBorder( const glm::ivec3 &BlockPos )
   if (BlocksInfo[BlockInd].FrontOffset == -1)
     return;
 
-  if (BlocksInfo[BlockInd].FrontOffset == NumberOfBorders - 1)
+  if (BlocksInfo[BlockInd].FrontOffset < NumberOfBorders)
   {
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
-    IndicesInfo.pop_back();
+    if (BlocksInfo[BlockInd].FrontOffset == NumberOfBorders - 1)
+    {
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+      IndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].FrontOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
+                                            Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].FrontOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      //assert(NumberOfBorders * 4 == NumberOfVertices);
+      //assert(NumberOfBorders * 6 == NumberOfIndices);
+      //std::cout << "RMFront (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].FrontOffset * 6 << "\n" << std::endl;
+
+      BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
+        BlocksInfo[BlockInd].FrontOffset;
+      std::swap(IndicesInfo[BlocksInfo[BlockInd].FrontOffset], IndicesInfo[NumberOfBorders - 1]);
+      IndicesInfo.pop_back();
+
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+    }
   }
   else
   {
-    //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
-    //                                      Render.MemoryManager.IndexBuffer,
-    //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
-    //                                      IndexBufferOffset + BlocksInfo[BlockInd].FrontOffset * 6 * sizeof(UINT32),
-    //                                      6 * sizeof(UINT32),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+    if (BlocksInfo[BlockInd].FrontOffset == MaxNumberOfBorders - NumberOfTransparentBorders)
+    {
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+      TransparentIndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
-                                          Render.MemoryManager.VertexBuffer,
-                                          VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
-                                          VertexBufferOffset + BlocksInfo[BlockInd].FrontOffset * 4 * sizeof(VERTEX),
-                                          4 * sizeof(VERTEX),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex);
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer, Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (MaxNumberOfVertices - NumberOfTransparentVertices) * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].FrontOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    //assert(NumberOfBorders * 4 == NumberOfVertices);
-    //assert(NumberOfBorders * 6 == NumberOfIndices);
-    //std::cout << "RMFront (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].FrontOffset * 6 << "\n" << std::endl;
+      BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
+      TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].FrontOffset;
+      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].FrontOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      TransparentIndicesInfo.pop_back();
 
-    BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
-      BlocksInfo[BlockInd].FrontOffset;
-    std::swap(IndicesInfo[BlocksInfo[BlockInd].FrontOffset], IndicesInfo[NumberOfBorders - 1]);
-    IndicesInfo.pop_back();
-
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+    }
   }
 
   BlocksInfo[BlockInd].FrontOffset = -1;
@@ -878,63 +1281,124 @@ VOID chunk_geometry::RemoveBackBorder( const glm::ivec3 &BlockPos )
   if (BlocksInfo[BlockInd].BackOffset == -1)
     return;
 
-  if (BlocksInfo[BlockInd].BackOffset == NumberOfBorders - 1)
+  if (BlocksInfo[BlockInd].BackOffset < NumberOfBorders)
   {
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
-    IndicesInfo.pop_back();
+    if (BlocksInfo[BlockInd].BackOffset == NumberOfBorders - 1)
+    {
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+      IndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].BackOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
+                                            Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].BackOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
+
+      //assert(NumberOfBorders * 4 == NumberOfVertices);
+      //assert(NumberOfBorders * 6 == NumberOfIndices);
+      //std::cout << "RMBack (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].BackOffset * 6 << "\n" << std::endl;
+
+      BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
+        BlocksInfo[BlockInd].BackOffset;
+      std::swap(IndicesInfo[BlocksInfo[BlockInd].BackOffset], IndicesInfo[NumberOfBorders - 1]);
+      IndicesInfo.pop_back();
+
+      NumberOfBorders--;
+      NumberOfIndices -= 6;
+      NumberOfVertices -= 4;
+    }
   }
   else
   {
-    //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
-    //                                      Render.MemoryManager.IndexBuffer,
-    //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
-    //                                      IndexBufferOffset + BlocksInfo[BlockInd].BackOffset * 6 * sizeof(UINT32),
-    //                                      6 * sizeof(UINT32),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
-    //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
+    if (BlocksInfo[BlockInd].BackOffset == MaxNumberOfBorders - NumberOfTransparentBorders)
+    {
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+      TransparentIndicesInfo.pop_back();
+    }
+    else
+    {
+      //Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.IndexBuffer,
+      //                                      Render.MemoryManager.IndexBuffer,
+      //                                      IndexBufferOffset + (NumberOfBorders - 1) * 6 * sizeof(UINT32),
+      //                                      IndexBufferOffset + BlocksInfo[BlockInd].UpOffset * 6 * sizeof(UINT32),
+      //                                      6 * sizeof(UINT32),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex,
+      //                                      *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer,
-                                          Render.MemoryManager.VertexBuffer,
-                                          VertexBufferOffset + (NumberOfBorders - 1) * 4 * sizeof(VERTEX),
-                                          VertexBufferOffset + BlocksInfo[BlockInd].BackOffset * 4 * sizeof(VERTEX),
-                                          4 * sizeof(VERTEX),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex,
-                                          *Render.VkApp.GraphicsQueueFamilyIndex);
+      Render.MemoryManager.CopyBufferRegion(Render.MemoryManager.VertexBuffer, Render.MemoryManager.VertexBuffer,
+                                            VertexBufferOffset + (MaxNumberOfVertices - NumberOfTransparentVertices) * sizeof(VERTEX),
+                                            VertexBufferOffset + BlocksInfo[BlockInd].BackOffset * 4 * sizeof(VERTEX),
+                                            4 * sizeof(VERTEX),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                             VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex,
+                                            *Render.VkApp.GraphicsQueueFamilyIndex);
 
-    //assert(NumberOfBorders * 4 == NumberOfVertices);
-    //assert(NumberOfBorders * 6 == NumberOfIndices);
-    //std::cout << "RMBack (x6): " << (NumberOfBorders - 1) * 6 << " -> " << BlocksInfo[BlockInd].BackOffset * 6 << "\n" << std::endl;
+      BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
+      TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].BackOffset;
+      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].BackOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      TransparentIndicesInfo.pop_back();
 
-    BlocksInfo[IndicesInfo[NumberOfBorders - 1].BlockId].*IndicesInfo[NumberOfBorders - 1].Offset =
-      BlocksInfo[BlockInd].BackOffset;
-    std::swap(IndicesInfo[BlocksInfo[BlockInd].BackOffset], IndicesInfo[NumberOfBorders - 1]);
-    IndicesInfo.pop_back();
-
-    NumberOfBorders--;
-    NumberOfIndices -= 6;
-    NumberOfVertices -= 4;
+      NumberOfTransparentBorders--;
+      NumberOfTransparentIndices -= 6;
+      NumberOfTransparentVertices -= 4;
+    }
   }
 
   BlocksInfo[BlockInd].BackOffset = -1;
@@ -947,9 +1411,17 @@ VOID chunk_geometry::UpdateCommandBuffer( VOID ) const
 {
   std::lock_guard<std::mutex> Lock(Render.Synchronization.RenderMutex);
 
-  command_buffer CommandBuffer(CommandBufferId);
+  {
+    command_buffer CommandBuffer(CommandBufferId);
 
-  CommandBuffer.Reset();
+    CommandBuffer.Reset();
+  }
+
+  {
+    command_buffer CommandBuffer(TransparentCommandBufferId);
+
+    CommandBuffer.Reset();
+  }
 
   CreateCommandBuffer();
 }
@@ -959,8 +1431,6 @@ VOID chunk_geometry::UpdateCommandBuffer( VOID ) const
  */
 VOID chunk_geometry::CreateCommandBuffer( VOID ) const
 {
-  command_buffer CommandBuffer(CommandBufferId);
-
   VkCommandBufferInheritanceInfo InheritanceInfo = {};
 
   InheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -972,30 +1442,70 @@ VOID chunk_geometry::CreateCommandBuffer( VOID ) const
   InheritanceInfo.queryFlags = 0;
   InheritanceInfo.pipelineStatistics = 0;
 
-  CommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT |
-    VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT, &InheritanceInfo);
+  {
+    command_buffer CommandBuffer(CommandBufferId);
 
-  CommandBuffer.CmdBindGraphicsPipeline(Render.DefaultGraphicsPipeline);
+    CommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+                        &InheritanceInfo);
 
-  //vkCmdPushConstants(CommandBufferId, Render.DefaultPipelineLayout.GetPipelineLayoutId(),
-  //                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-  //                   reinterpret_cast<const VOID *>(&Render.AppliedMatrWVP));
+    CommandBuffer.CmdBindGraphicsPipeline(Render.DefaultGraphicsPipeline);
 
-  vkCmdBindDescriptorSets(CommandBufferId, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          Render.DefaultPipelineLayout.GetPipelineLayoutId(),
-                          0, 1, &Render.DefaultDescriptorSet, 0, nullptr);
+    //vkCmdPushConstants(CommandBufferId, Render.DefaultPipelineLayout.GetPipelineLayoutId(),
+    //                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+    //                   reinterpret_cast<const VOID *>(&Render.AppliedMatrWVP));
 
-  VkBuffer VertexBufferId = VertexBuffer.GetBufferId();
+    vkCmdBindDescriptorSets(CommandBufferId, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            Render.DefaultPipelineLayout.GetPipelineLayoutId(), 0, 1, &Render.DefaultDescriptorSet, 0,
+                            nullptr);
 
-  vkCmdBindVertexBuffers(CommandBufferId, 0, 1, &VertexBufferId, &VertexBufferOffset);
+    VkBuffer VertexBufferId = VertexBuffer.GetBufferId();
+    
+    vkCmdBindVertexBuffers(CommandBufferId, 0, 1, &VertexBufferId, &VertexBufferOffset);
 
-  VkBuffer IndexBufferId = IndexBuffer.GetBufferId();
+    VkBuffer IndexBufferId = IndexBuffer.GetBufferId();
 
-  vkCmdBindIndexBuffer(CommandBufferId, IndexBufferId, IndexBufferOffset, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(CommandBufferId, IndexBufferId, IndexBufferOffset, VK_INDEX_TYPE_UINT32);
 
-  vkCmdDrawIndexed(CommandBufferId, NumberOfIndices, 1, 0, 0, 0);
+    vkCmdDrawIndexed(CommandBufferId, NumberOfIndices, 1, 0, 0, 0);
 
-  CommandBuffer.End();
+    CommandBuffer.End();
+  }
+
+  {
+    command_buffer CommandBuffer(TransparentCommandBufferId);
+
+    CommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+                        &InheritanceInfo);
+
+    CommandBuffer.CmdBindGraphicsPipeline(Render.DefaultGraphicsPipeline);
+
+    //vkCmdPushConstants(CommandBufferId, Render.DefaultPipelineLayout.GetPipelineLayoutId(),
+    //                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+    //                   reinterpret_cast<const VOID *>(&Render.AppliedMatrWVP));
+
+    vkCmdBindDescriptorSets(TransparentCommandBufferId, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            Render.DefaultPipelineLayout.GetPipelineLayoutId(), 0, 1, &Render.DefaultDescriptorSet, 0,
+                            nullptr);
+
+    VkBuffer VertexBufferId = VertexBuffer.GetBufferId();
+
+    if (NumberOfTransparentBorders > 0)
+    {
+      UINT64 TransparentVertexBufferOffset = VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices);
+
+      vkCmdBindVertexBuffers(TransparentCommandBufferId, 0, 1, &VertexBufferId, &TransparentVertexBufferOffset);
+
+      VkBuffer IndexBufferId = IndexBuffer.GetBufferId();
+
+      UINT64 TransparentIndexBufferOffset = IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices);
+
+      vkCmdBindIndexBuffer(TransparentCommandBufferId, IndexBufferId, TransparentIndexBufferOffset, VK_INDEX_TYPE_UINT32);
+
+      vkCmdDrawIndexed(TransparentCommandBufferId, NumberOfTransparentIndices, 1, 0, 0, 0);
+    }
+
+    CommandBuffer.End();
+  }
 }
 
 ///**
@@ -1053,42 +1563,78 @@ VOID chunk_geometry::AddUpBorder( const glm::ivec3 &BlockPos, const glm::vec2 *T
   WriteIndices[4] = NumberOfVertices + 2;
   WriteIndices[5] = NumberOfVertices + 3;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.VertexBuffer,
-    VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices,
-    sizeof(VERTEX) * 4,
-    reinterpret_cast<BYTE *>(WriteVertices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+  if (Alpha < 1 - FLT_EPSILON)
+  {
+    NumberOfTransparentVertices += 4;
+    NumberOfTransparentIndices += 6;
+    NumberOfTransparentBorders++;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.IndexBuffer,
-    IndexBufferOffset + sizeof(UINT32) * NumberOfIndices,
-    sizeof(UINT32) * 6,
-    reinterpret_cast<BYTE *>(WriteIndices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
+                                           sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  //assert(NumberOfBorders * 4 == NumberOfVertices);
-  //assert(NumberOfBorders * 6 == NumberOfIndices);
-  //std::cout << "ADDUp (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices),
+                                           sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  INDEX_INFORMATION IndexInfo = {};
+    INDEX_INFORMATION IndexInfo = {};
 
-  IndexInfo.Offset = &BLOCK_INFORMATION::UpOffset;
-  IndexInfo.BlockId = BlockInd;
+    IndexInfo.Offset = &BLOCK_INFORMATION::UpOffset;
+    IndexInfo.BlockId = BlockInd;
 
-  IndicesInfo.push_back(IndexInfo);
+    TransparentIndicesInfo.push_back(IndexInfo);
 
-  BlocksInfo[BlockInd].UpOffset = NumberOfBorders;
+    BlocksInfo[BlockInd].UpOffset = MaxNumberOfBorders - NumberOfTransparentBorders;
+  }
+  else
+  {
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices, sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  NumberOfVertices += 4;
-  NumberOfIndices += 6;
-  NumberOfBorders++;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * NumberOfIndices, sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+    //assert(NumberOfBorders * 4 == NumberOfVertices);
+    //assert(NumberOfBorders * 6 == NumberOfIndices);
+    //std::cout << "ADDUp (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+
+    INDEX_INFORMATION IndexInfo = {};
+
+    IndexInfo.Offset = &BLOCK_INFORMATION::UpOffset;
+    IndexInfo.BlockId = BlockInd;
+
+    IndicesInfo.push_back(IndexInfo);
+
+    BlocksInfo[BlockInd].UpOffset = NumberOfBorders;
+
+    NumberOfVertices += 4;
+    NumberOfIndices += 6;
+    NumberOfBorders++;
+  }
 }
 
 /**
@@ -1134,42 +1680,78 @@ VOID chunk_geometry::AddDownBorder( const glm::ivec3 &BlockPos, const glm::vec2 
   WriteIndices[4] = NumberOfVertices + 2;
   WriteIndices[5] = NumberOfVertices + 3;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.VertexBuffer,
-    VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices,
-    sizeof(VERTEX) * 4,
-    reinterpret_cast<BYTE *>(WriteVertices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+  if (Alpha < 1 - FLT_EPSILON)
+  {
+    NumberOfTransparentVertices += 4;
+    NumberOfTransparentIndices += 6;
+    NumberOfTransparentBorders++;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.IndexBuffer,
-    IndexBufferOffset + sizeof(UINT32) * NumberOfIndices,
-    sizeof(UINT32) * 6,
-    reinterpret_cast<BYTE *>(WriteIndices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
+                                           sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  //assert(NumberOfBorders * 4 == NumberOfVertices);
-  //assert(NumberOfBorders * 6 == NumberOfIndices);
-  //std::cout << "ADDDown (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices),
+                                           sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  INDEX_INFORMATION IndexInfo = {};
+    INDEX_INFORMATION IndexInfo = {};
 
-  IndexInfo.Offset = &BLOCK_INFORMATION::DownOffset;
-  IndexInfo.BlockId = BlockInd;
+    IndexInfo.Offset = &BLOCK_INFORMATION::DownOffset;
+    IndexInfo.BlockId = BlockInd;
 
-  IndicesInfo.push_back(IndexInfo);
+    TransparentIndicesInfo.push_back(IndexInfo);
 
-  BlocksInfo[BlockInd].DownOffset = NumberOfBorders;
+    BlocksInfo[BlockInd].DownOffset = MaxNumberOfBorders - NumberOfTransparentBorders;
+  }
+  else
+  {
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices, sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  NumberOfVertices += 4;
-  NumberOfIndices += 6;
-  NumberOfBorders++;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * NumberOfIndices, sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+    //assert(NumberOfBorders * 4 == NumberOfVertices);
+    //assert(NumberOfBorders * 6 == NumberOfIndices);
+    //std::cout << "ADDDown (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+
+    INDEX_INFORMATION IndexInfo = {};
+
+    IndexInfo.Offset = &BLOCK_INFORMATION::DownOffset;
+    IndexInfo.BlockId = BlockInd;
+
+    IndicesInfo.push_back(IndexInfo);
+
+    BlocksInfo[BlockInd].DownOffset = NumberOfBorders;
+
+    NumberOfVertices += 4;
+    NumberOfIndices += 6;
+    NumberOfBorders++;
+  }
 }
 
 /**
@@ -1215,42 +1797,78 @@ VOID chunk_geometry::AddRightBorder( const glm::ivec3 &BlockPos, const glm::vec2
   WriteIndices[4] = NumberOfVertices + 2;
   WriteIndices[5] = NumberOfVertices + 3;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.VertexBuffer,
-    VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices,
-    sizeof(VERTEX) * 4,
-    reinterpret_cast<BYTE *>(WriteVertices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+  if (Alpha < 1 - FLT_EPSILON)
+  {
+    NumberOfTransparentVertices += 4;
+    NumberOfTransparentIndices += 6;
+    NumberOfTransparentBorders++;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.IndexBuffer,
-    IndexBufferOffset + sizeof(UINT32) * NumberOfIndices,
-    sizeof(UINT32) * 6,
-    reinterpret_cast<BYTE *>(WriteIndices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
+                                           sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  //assert(NumberOfBorders * 4 == NumberOfVertices);
-  //assert(NumberOfBorders * 6 == NumberOfIndices);
-  //std::cout << "ADDRight (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices),
+                                           sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  INDEX_INFORMATION IndexInfo = {};
+    INDEX_INFORMATION IndexInfo = {};
 
-  IndexInfo.Offset = &BLOCK_INFORMATION::RightOffset;
-  IndexInfo.BlockId = BlockInd;
+    IndexInfo.Offset = &BLOCK_INFORMATION::RightOffset;
+    IndexInfo.BlockId = BlockInd;
 
-  IndicesInfo.push_back(IndexInfo);
+    TransparentIndicesInfo.push_back(IndexInfo);
 
-  BlocksInfo[BlockInd].RightOffset = NumberOfBorders;
+    BlocksInfo[BlockInd].RightOffset = MaxNumberOfBorders - NumberOfTransparentBorders;
+  }
+  else
+  {
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices, sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  NumberOfVertices += 4;
-  NumberOfIndices += 6;
-  NumberOfBorders++;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * NumberOfIndices, sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+    //assert(NumberOfBorders * 4 == NumberOfVertices);
+    //assert(NumberOfBorders * 6 == NumberOfIndices);
+    //std::cout << "ADDRight (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+
+    INDEX_INFORMATION IndexInfo = {};
+
+    IndexInfo.Offset = &BLOCK_INFORMATION::RightOffset;
+    IndexInfo.BlockId = BlockInd;
+
+    IndicesInfo.push_back(IndexInfo);
+
+    BlocksInfo[BlockInd].RightOffset = NumberOfBorders;
+
+    NumberOfVertices += 4;
+    NumberOfIndices += 6;
+    NumberOfBorders++;
+  }
 }
 
 /**
@@ -1296,42 +1914,78 @@ VOID chunk_geometry::AddLeftBorder( const glm::ivec3 &BlockPos, const glm::vec2 
   WriteIndices[4] = NumberOfVertices + 2;
   WriteIndices[5] = NumberOfVertices + 3;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.VertexBuffer,
-    VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices,
-    sizeof(VERTEX) * 4,
-    reinterpret_cast<BYTE *>(WriteVertices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+  if (Alpha < 1 - FLT_EPSILON)
+  {
+    NumberOfTransparentVertices += 4;
+    NumberOfTransparentIndices += 6;
+    NumberOfTransparentBorders++;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.IndexBuffer,
-    IndexBufferOffset + sizeof(UINT32) * NumberOfIndices,
-    sizeof(UINT32) * 6,
-    reinterpret_cast<BYTE *>(WriteIndices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
+                                           sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  //assert(NumberOfBorders * 4 == NumberOfVertices);
-  //assert(NumberOfBorders * 6 == NumberOfIndices);
-  //std::cout << "ADDLeft (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices),
+                                           sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  INDEX_INFORMATION IndexInfo = {};
+    INDEX_INFORMATION IndexInfo = {};
 
-  IndexInfo.Offset = &BLOCK_INFORMATION::LeftOffset;
-  IndexInfo.BlockId = BlockInd;
+    IndexInfo.Offset = &BLOCK_INFORMATION::LeftOffset;
+    IndexInfo.BlockId = BlockInd;
 
-  IndicesInfo.push_back(IndexInfo);
+    TransparentIndicesInfo.push_back(IndexInfo);
 
-  BlocksInfo[BlockInd].LeftOffset = NumberOfBorders;
+    BlocksInfo[BlockInd].LeftOffset = MaxNumberOfBorders - NumberOfTransparentBorders;
+  }
+  else
+  {
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices, sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  NumberOfVertices += 4;
-  NumberOfIndices += 6;
-  NumberOfBorders++;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * NumberOfIndices, sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+    //assert(NumberOfBorders * 4 == NumberOfVertices);
+    //assert(NumberOfBorders * 6 == NumberOfIndices);
+    //std::cout << "ADDLeft (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+
+    INDEX_INFORMATION IndexInfo = {};
+
+    IndexInfo.Offset = &BLOCK_INFORMATION::LeftOffset;
+    IndexInfo.BlockId = BlockInd;
+
+    IndicesInfo.push_back(IndexInfo);
+
+    BlocksInfo[BlockInd].LeftOffset = NumberOfBorders;
+
+    NumberOfVertices += 4;
+    NumberOfIndices += 6;
+    NumberOfBorders++;
+  }
 }
 
 /**
@@ -1377,42 +2031,78 @@ VOID chunk_geometry::AddFrontBorder( const glm::ivec3 &BlockPos, const glm::vec2
   WriteIndices[4] = NumberOfVertices + 2;
   WriteIndices[5] = NumberOfVertices + 3;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.VertexBuffer,
-    VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices,
-    sizeof(VERTEX) * 4,
-    reinterpret_cast<BYTE *>(WriteVertices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+  if (Alpha < 1 - FLT_EPSILON)
+  {
+    NumberOfTransparentVertices += 4;
+    NumberOfTransparentIndices += 6;
+    NumberOfTransparentBorders++;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.IndexBuffer,
-    IndexBufferOffset + sizeof(UINT32) * NumberOfIndices,
-    sizeof(UINT32) * 6,
-    reinterpret_cast<BYTE *>(WriteIndices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
+                                           sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  //assert(NumberOfBorders * 4 == NumberOfVertices);
-  //assert(NumberOfBorders * 6 == NumberOfIndices);
-  //std::cout << "ADDFront (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices),
+                                           sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  INDEX_INFORMATION IndexInfo = {};
+    INDEX_INFORMATION IndexInfo = {};
 
-  IndexInfo.Offset = &BLOCK_INFORMATION::FrontOffset;
-  IndexInfo.BlockId = BlockInd;
+    IndexInfo.Offset = &BLOCK_INFORMATION::FrontOffset;
+    IndexInfo.BlockId = BlockInd;
 
-  IndicesInfo.push_back(IndexInfo);
+    TransparentIndicesInfo.push_back(IndexInfo);
 
-  BlocksInfo[BlockInd].FrontOffset = NumberOfBorders;
+    BlocksInfo[BlockInd].FrontOffset = MaxNumberOfBorders - NumberOfTransparentBorders;
+  }
+  else
+  {
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices, sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  NumberOfVertices += 4;
-  NumberOfIndices += 6;
-  NumberOfBorders++;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * NumberOfIndices, sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+    //assert(NumberOfBorders * 4 == NumberOfVertices);
+    //assert(NumberOfBorders * 6 == NumberOfIndices);
+    //std::cout << "ADDFront (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+
+    INDEX_INFORMATION IndexInfo = {};
+
+    IndexInfo.Offset = &BLOCK_INFORMATION::FrontOffset;
+    IndexInfo.BlockId = BlockInd;
+
+    IndicesInfo.push_back(IndexInfo);
+
+    BlocksInfo[BlockInd].FrontOffset = NumberOfBorders;
+
+    NumberOfVertices += 4;
+    NumberOfIndices += 6;
+    NumberOfBorders++;
+  }
 }
 
 /**
@@ -1458,42 +2148,78 @@ VOID chunk_geometry::AddBackBorder( const glm::ivec3 &BlockPos, const glm::vec2 
   WriteIndices[4] = NumberOfVertices + 2;
   WriteIndices[5] = NumberOfVertices + 3;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.VertexBuffer,
-    VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices,
-    sizeof(VERTEX) * 4,
-    reinterpret_cast<BYTE *>(WriteVertices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+  if (Alpha < 1 - FLT_EPSILON)
+  {
+    NumberOfTransparentVertices += 4;
+    NumberOfTransparentIndices += 6;
+    NumberOfTransparentBorders++;
 
-  Render.MemoryManager.SmallUpdateBuffer(
-    Render.MemoryManager.IndexBuffer,
-    IndexBufferOffset + sizeof(UINT32) * NumberOfIndices,
-    sizeof(UINT32) * 6,
-    reinterpret_cast<BYTE *>(WriteIndices),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-  
-  //assert(NumberOfBorders * 4 == NumberOfVertices);
-  //assert(NumberOfBorders * 6 == NumberOfIndices);
-  //std::cout << "ADDBack (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
+                                           sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  INDEX_INFORMATION IndexInfo = {};
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices),
+                                           sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-  IndexInfo.Offset = &BLOCK_INFORMATION::BackOffset;
-  IndexInfo.BlockId = BlockInd;
+    INDEX_INFORMATION IndexInfo = {};
 
-  IndicesInfo.push_back(IndexInfo);
+    IndexInfo.Offset = &BLOCK_INFORMATION::BackOffset;
+    IndexInfo.BlockId = BlockInd;
 
-  BlocksInfo[BlockInd].BackOffset = NumberOfBorders;
+    TransparentIndicesInfo.push_back(IndexInfo);
 
-  NumberOfVertices += 4;
-  NumberOfIndices += 6;
-  NumberOfBorders++;
+    BlocksInfo[BlockInd].BackOffset = MaxNumberOfBorders - NumberOfTransparentBorders;
+  }
+  else
+  {
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
+                                           VertexBufferOffset + sizeof(VERTEX) * NumberOfVertices, sizeof(VERTEX) * 4,
+                                           reinterpret_cast<BYTE *>(WriteVertices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+    Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.IndexBuffer,
+                                           IndexBufferOffset + sizeof(UINT32) * NumberOfIndices, sizeof(UINT32) * 6,
+                                           reinterpret_cast<BYTE *>(WriteIndices),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT |
+                                            VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+                                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+    //assert(NumberOfBorders * 4 == NumberOfVertices);
+    //assert(NumberOfBorders * 6 == NumberOfIndices);
+    //std::cout << "ADDBack (x6): " << NumberOfBorders * 6 << ":  (" << ChunkOffsetX + BlockPos.x << ", " << BlockPos.y << ", " << ChunkOffsetZ + BlockPos.z << ")\n" << std::endl;
+
+    INDEX_INFORMATION IndexInfo = {};
+
+    IndexInfo.Offset = &BLOCK_INFORMATION::BackOffset;
+    IndexInfo.BlockId = BlockInd;
+
+    IndicesInfo.push_back(IndexInfo);
+
+    BlocksInfo[BlockInd].BackOffset = NumberOfBorders;
+
+    NumberOfVertices += 4;
+    NumberOfIndices += 6;
+    NumberOfBorders++;
+  }
 }
 
 /**
@@ -1818,6 +2544,15 @@ VkCommandBuffer chunk_geometry::GetCommandBuffer( VOID )
 }
 
 /**
+ * \brief Get secondary command buffer for drawing opaque objects
+ * \return Command buffer
+ */
+VkCommandBuffer chunk_geometry::GetTransparentCommandBuffer( VOID )
+{
+  return TransparentCommandBufferId;
+}
+
+/**
  * \brief Chunk geometry destructor
  */
 chunk_geometry::~chunk_geometry( VOID )
@@ -1825,15 +2560,24 @@ chunk_geometry::~chunk_geometry( VOID )
   Render.MemoryManager.FreeChunk(MemoryChunkId);
   Render.DeleteDrawElement(this);
 
-  command_buffer CommandBuffer(CommandBufferId);
-
   {
     std::lock_guard<std::mutex> Lock(Render.Synchronization.RenderMutex);
 
-    CommandBuffer.Reset(VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+    {
+      command_buffer CommandBuffer(CommandBufferId);
+
+      CommandBuffer.Reset(VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+    }
+
+    {
+      command_buffer CommandBuffer(TransparentCommandBufferId);
+
+      CommandBuffer.Reset(VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+    }
   }
   
   Render.ReturnSecondaryCommandBuffer(CommandBufferId);
+  Render.ReturnSecondaryCommandBuffer(TransparentCommandBufferId);
 }
 
 /**
