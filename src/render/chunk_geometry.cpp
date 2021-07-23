@@ -557,13 +557,6 @@ chunk_geometry::chunk_geometry( render &Render, const BLOCK *Blocks, const std::
   NumberOfTransparentIndices = 6 * CurTransparentBorder;
   NumberOfTransparentBorders = CurTransparentBorder;
 
-  {
-    INT64 TransparentIndexPostOffset = MaxNumberOfVertices - NumberOfTransparentVertices;
-
-    for (INT64 i = 0; i < NumberOfTransparentIndices; i++)
-      WriteIndices[MaxNumberOfIndices - i - 1] -= TransparentIndexPostOffset;
-  }
-
   if (NumberOfIndices == 0 && NumberOfTransparentIndices == 0)
   {
     std::cout << "Empty chunk-mb its error\n" << std::endl;
@@ -716,8 +709,9 @@ VOID chunk_geometry::RemoveUpBorder( const glm::ivec3 &BlockPos )
                                             *Render.VkApp.GraphicsQueueFamilyIndex);
 
       BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
-      TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].UpOffset;
-      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].UpOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+        TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].UpOffset;
+      std::swap(TransparentIndicesInfo[MaxNumberOfBorders - BlocksInfo[BlockInd].UpOffset - 1],
+                TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
       TransparentIndicesInfo.pop_back();
 
       NumberOfTransparentBorders--;
@@ -852,7 +846,8 @@ VOID chunk_geometry::RemoveDownBorder( const glm::ivec3 &BlockPos )
 
       BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
       TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].DownOffset;
-      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].DownOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      std::swap(TransparentIndicesInfo[MaxNumberOfBorders - BlocksInfo[BlockInd].DownOffset - 1],
+                TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
       TransparentIndicesInfo.pop_back();
 
       NumberOfTransparentBorders--;
@@ -987,7 +982,8 @@ VOID chunk_geometry::RemoveRightBorder( const glm::ivec3 &BlockPos )
 
       BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
       TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].RightOffset;
-      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].RightOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      std::swap(TransparentIndicesInfo[MaxNumberOfBorders - BlocksInfo[BlockInd].RightOffset - 1],
+                TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
       TransparentIndicesInfo.pop_back();
 
       NumberOfTransparentBorders--;
@@ -1122,7 +1118,8 @@ VOID chunk_geometry::RemoveLeftBorder( const glm::ivec3 &BlockPos )
 
       BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
       TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].LeftOffset;
-      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].LeftOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      std::swap(TransparentIndicesInfo[MaxNumberOfBorders - BlocksInfo[BlockInd].LeftOffset - 1],
+                TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
       TransparentIndicesInfo.pop_back();
 
       NumberOfTransparentBorders--;
@@ -1257,7 +1254,8 @@ VOID chunk_geometry::RemoveFrontBorder( const glm::ivec3 &BlockPos )
 
       BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
       TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].FrontOffset;
-      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].FrontOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      std::swap(TransparentIndicesInfo[MaxNumberOfBorders - BlocksInfo[BlockInd].FrontOffset - 1],
+                TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
       TransparentIndicesInfo.pop_back();
 
       NumberOfTransparentBorders--;
@@ -1392,7 +1390,8 @@ VOID chunk_geometry::RemoveBackBorder( const glm::ivec3 &BlockPos )
 
       BlocksInfo[TransparentIndicesInfo[NumberOfTransparentBorders - 1].BlockId].*
       TransparentIndicesInfo[NumberOfTransparentBorders - 1].Offset = BlocksInfo[BlockInd].BackOffset;
-      std::swap(TransparentIndicesInfo[BlocksInfo[BlockInd].BackOffset], TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
+      std::swap(TransparentIndicesInfo[MaxNumberOfBorders - BlocksInfo[BlockInd].BackOffset - 1],
+                TransparentIndicesInfo[NumberOfTransparentBorders - 1]);
       TransparentIndicesInfo.pop_back();
 
       NumberOfTransparentBorders--;
@@ -1486,22 +1485,32 @@ VOID chunk_geometry::CreateCommandBuffer( VOID ) const
     vkCmdBindDescriptorSets(TransparentCommandBufferId, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             Render.DefaultPipelineLayout.GetPipelineLayoutId(), 0, 1, &Render.DefaultDescriptorSet, 0,
                             nullptr);
-
-    VkBuffer VertexBufferId = VertexBuffer.GetBufferId();
-
+    
     if (NumberOfTransparentBorders > 0)
     {
-      UINT64 TransparentVertexBufferOffset = VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices);
+      //VkBuffer VertexBufferId = VertexBuffer.GetBufferId();
+      //
+      //UINT64 TransparentVertexBufferOffset = VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices);
+      //
+      //vkCmdBindVertexBuffers(TransparentCommandBufferId, 0, 1, &VertexBufferId, &TransparentVertexBufferOffset);
+      //
+      //VkBuffer IndexBufferId = IndexBuffer.GetBufferId();
+      //
+      //UINT64 TransparentIndexBufferOffset = IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices);
+      //
+      //vkCmdBindIndexBuffer(TransparentCommandBufferId, IndexBufferId, TransparentIndexBufferOffset, VK_INDEX_TYPE_UINT32);
+      //
+      //vkCmdDrawIndexed(TransparentCommandBufferId, NumberOfTransparentIndices, 1, 0, 0, 0);
 
-      vkCmdBindVertexBuffers(TransparentCommandBufferId, 0, 1, &VertexBufferId, &TransparentVertexBufferOffset);
+      VkBuffer VertexBufferId = VertexBuffer.GetBufferId();
+
+      vkCmdBindVertexBuffers(TransparentCommandBufferId, 0, 1, &VertexBufferId, &VertexBufferOffset);
 
       VkBuffer IndexBufferId = IndexBuffer.GetBufferId();
 
-      UINT64 TransparentIndexBufferOffset = IndexBufferOffset + sizeof(UINT32) * (MaxNumberOfIndices - NumberOfTransparentIndices);
+      vkCmdBindIndexBuffer(TransparentCommandBufferId, IndexBufferId, IndexBufferOffset, VK_INDEX_TYPE_UINT32);
 
-      vkCmdBindIndexBuffer(TransparentCommandBufferId, IndexBufferId, TransparentIndexBufferOffset, VK_INDEX_TYPE_UINT32);
-
-      vkCmdDrawIndexed(TransparentCommandBufferId, NumberOfTransparentIndices, 1, 0, 0, 0);
+      vkCmdDrawIndexed(TransparentCommandBufferId, NumberOfTransparentIndices, 1, MaxNumberOfIndices - NumberOfTransparentIndices, 0, 0);
     }
 
     CommandBuffer.End();
@@ -1568,6 +1577,13 @@ VOID chunk_geometry::AddUpBorder( const glm::ivec3 &BlockPos, const glm::vec2 *T
     NumberOfTransparentVertices += 4;
     NumberOfTransparentIndices += 6;
     NumberOfTransparentBorders++;
+
+    WriteIndices[0] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[1] = MaxNumberOfVertices - NumberOfTransparentVertices + 1;
+    WriteIndices[2] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[3] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[4] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[5] = MaxNumberOfVertices - NumberOfTransparentVertices + 3;
 
     Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
                                            VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
@@ -1686,6 +1702,13 @@ VOID chunk_geometry::AddDownBorder( const glm::ivec3 &BlockPos, const glm::vec2 
     NumberOfTransparentIndices += 6;
     NumberOfTransparentBorders++;
 
+    WriteIndices[0] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[1] = MaxNumberOfVertices - NumberOfTransparentVertices + 1;
+    WriteIndices[2] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[3] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[4] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[5] = MaxNumberOfVertices - NumberOfTransparentVertices + 3;
+
     Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
                                            VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
                                            sizeof(VERTEX) * 4,
@@ -1802,6 +1825,13 @@ VOID chunk_geometry::AddRightBorder( const glm::ivec3 &BlockPos, const glm::vec2
     NumberOfTransparentVertices += 4;
     NumberOfTransparentIndices += 6;
     NumberOfTransparentBorders++;
+
+    WriteIndices[0] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[1] = MaxNumberOfVertices - NumberOfTransparentVertices + 1;
+    WriteIndices[2] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[3] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[4] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[5] = MaxNumberOfVertices - NumberOfTransparentVertices + 3;
 
     Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
                                            VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
@@ -1920,6 +1950,13 @@ VOID chunk_geometry::AddLeftBorder( const glm::ivec3 &BlockPos, const glm::vec2 
     NumberOfTransparentIndices += 6;
     NumberOfTransparentBorders++;
 
+    WriteIndices[0] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[1] = MaxNumberOfVertices - NumberOfTransparentVertices + 1;
+    WriteIndices[2] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[3] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[4] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[5] = MaxNumberOfVertices - NumberOfTransparentVertices + 3;
+
     Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
                                            VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
                                            sizeof(VERTEX) * 4,
@@ -2037,6 +2074,13 @@ VOID chunk_geometry::AddFrontBorder( const glm::ivec3 &BlockPos, const glm::vec2
     NumberOfTransparentIndices += 6;
     NumberOfTransparentBorders++;
 
+    WriteIndices[0] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[1] = MaxNumberOfVertices - NumberOfTransparentVertices + 1;
+    WriteIndices[2] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[3] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[4] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[5] = MaxNumberOfVertices - NumberOfTransparentVertices + 3;
+
     Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
                                            VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
                                            sizeof(VERTEX) * 4,
@@ -2153,6 +2197,13 @@ VOID chunk_geometry::AddBackBorder( const glm::ivec3 &BlockPos, const glm::vec2 
     NumberOfTransparentVertices += 4;
     NumberOfTransparentIndices += 6;
     NumberOfTransparentBorders++;
+
+    WriteIndices[0] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[1] = MaxNumberOfVertices - NumberOfTransparentVertices + 1;
+    WriteIndices[2] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[3] = MaxNumberOfVertices - NumberOfTransparentVertices + 0;
+    WriteIndices[4] = MaxNumberOfVertices - NumberOfTransparentVertices + 2;
+    WriteIndices[5] = MaxNumberOfVertices - NumberOfTransparentVertices + 3;
 
     Render.MemoryManager.SmallUpdateBuffer(Render.MemoryManager.VertexBuffer,
                                            VertexBufferOffset + sizeof(VERTEX) * (MaxNumberOfVertices - NumberOfTransparentVertices),
