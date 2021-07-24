@@ -16,6 +16,25 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Install Vulkan
+      run:
+        mkdir vk
+        cd vk
+        wget https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
+	for file in . do
+          if [ -f "$file" ] then
+            echo "$file downloaded"
+            tar -xzf $file
+          fi
+        done
+        for dir in . do
+          if [ -d "$dir" ] then
+            echo "$dir extracted"
+            cd $dir
+            break
+          fi
+        done
+
     - name: Configure CMake
       run:
         cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
