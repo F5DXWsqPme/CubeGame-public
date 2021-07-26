@@ -49,8 +49,7 @@ TestResult.xml
 dlldata.c
 
 # Local files
-world/
-textures/
+world/    
 Profiling/
 Doxygen/
 bin/

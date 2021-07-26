@@ -68,9 +68,9 @@ glfw_window::glfw_window( const std::string &Name, INT W, INT H ) : Name(Name)
   glfwWindowHint(GLFW_BLUE_BITS, Mode->blueBits);
   glfwWindowHint(GLFW_REFRESH_RATE, Mode->refreshRate);
 
-  //WindowPtr = glfwCreateWindow(Mode->width, Mode->height, Name.c_str(), Monitor, nullptr);
+  WindowPtr = glfwCreateWindow(Mode->width, Mode->height, Name.c_str(), Monitor, nullptr);
 
-  WindowPtr = glfwCreateWindow(W, H, Name.c_str(), nullptr, nullptr);
+  //WindowPtr = glfwCreateWindow(W, H, Name.c_str(), nullptr, nullptr);
 
   if (WindowPtr == nullptr)
     throw std::runtime_error("Window don't created");
