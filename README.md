@@ -3,7 +3,7 @@
 Simple cube game
 
 ![image](/images/screen.png "Screenshot")
-* Game screenshot *
+*Game screenshot*
 
 ### How install ###
 - Install Vulkan (https://vulkan.lunarg.com/)
