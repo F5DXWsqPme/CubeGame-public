@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       with:
-      submodules: recursive
+        submodules: recursive
 
     - name: Install Vulkan
       run: bash .github/workflows/install-vulkan.sh
