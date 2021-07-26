@@ -1,7 +1,7 @@
 sudo mkdir vk
 cd vk
 
-wget --no-verbose https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
+sudo wget --no-verbose https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
 
 for file in *
 do
