@@ -7,7 +7,7 @@
 
 #if ENABLE_VULKAN_GLFW_SURFACE
 #include "ext/volk/volk.h"
-#include "ext/glfw/include/glfw/glfw3.h"
+#include "ext/glfw/include/GLFW/glfw3.h"
 
 #include "glfw_surface.h"
 #include "render/glfw_window.h"

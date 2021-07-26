@@ -2,7 +2,7 @@
 #define __glfw_surface_h_
 
 #include "ext/volk/volk.h"
-#include "ext/glfw/include/glfw/glfw3.h"
+#include "ext/glfw/include/GLFW/glfw3.h"
 
 #include "def.h"
 
