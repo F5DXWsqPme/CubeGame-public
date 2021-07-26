@@ -14,9 +14,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: recursive
+#    - uses: actions/checkout@v2
+#      with:
+#        submodules: recursive
+
+    - name: Clone
+      run: git clone --recursive https://github.com/F5DXWsqPme/CubeGame-public
 
     - name: Update
       run: sudo apt-get update
