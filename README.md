@@ -8,6 +8,7 @@ Simple cube game
 - Install GNU GCC compiler
 - Install CMake
 - Install git
+- (Ubuntu: sudo apt-get install xorg-dev libglu1-mesa-dev)
 - git clone --recursive https://github.com/F5DXWsqPme/CubeGame-public
 - cd CubeGame-public
 - mkdir build
