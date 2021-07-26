@@ -2,6 +2,9 @@
 
 Simple cube game
 
+![screenshot](https://github.com/F5DXWsqPme/CubeGame-public/images/screen.png)
+* Game screenshot *
+
 ### How install ###
 - Install Vulkan (https://vulkan.lunarg.com/)
 - Install Boost (https://www.boost.org/)
