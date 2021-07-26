@@ -21,7 +21,7 @@ jobs:
         mkdir vk
         cd vk
         wget https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
-	for file in . do
+        for file in . do
           if [ -f "$file" ] then
             echo "$file downloaded"
             tar -xzf $file
