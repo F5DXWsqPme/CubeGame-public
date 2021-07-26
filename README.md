@@ -2,7 +2,7 @@
 
 Simple cube game
 
-![screenshot](https://github.com/F5DXWsqPme/CubeGame-public/images/screen.png)
+![image](/images/screen.png "Screenshot")
 * Game screenshot *
 
 ### How install ###
