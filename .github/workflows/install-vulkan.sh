@@ -24,3 +24,5 @@ do
     break
   fi
 done
+
+./vulkansdk
