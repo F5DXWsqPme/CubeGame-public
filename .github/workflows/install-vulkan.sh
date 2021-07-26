@@ -9,7 +9,7 @@ do
   if [ -f "$file" ]
   then
     echo "$file downloaded"
-    tar -xzf "$file"
+    sudo tar -xzf "$file"
     break
   fi
 done
