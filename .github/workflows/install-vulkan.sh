@@ -1,4 +1,4 @@
-mkdir vk
+sudo mkdir vk
 cd vk
 
 wget --no-verbose https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
