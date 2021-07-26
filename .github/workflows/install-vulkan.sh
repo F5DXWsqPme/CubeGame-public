@@ -3,7 +3,7 @@ cd vk
 
 wget https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
 
-for file in "./"
+for file in .
 do
   echo "$file in current directory"
   if [ -f "$file" ]
@@ -13,7 +13,7 @@ do
   fi
 done
 
-for dir in "./"
+for dir in .
 do
   echo "$dir in current directory"
   if [ -d "$dir" ]
