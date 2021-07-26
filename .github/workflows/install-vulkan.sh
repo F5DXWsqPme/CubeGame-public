@@ -27,5 +27,6 @@
 #
 #sudo ./vulkansdk
 
-sudo apt install vulkan-utils
-sudo apt install libvulkan1 mesa-vulkan-drivers vulkan-utils
+sudo apt install vulkan-tools
+sudo apt install libvulkan-dev
+sudo apt install vulkan-validationlayers-dev spirv-tools
