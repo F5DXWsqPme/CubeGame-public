@@ -81,7 +81,7 @@ set(PROJECT_SOURCES
   src/render/camera.cpp
   src/render/camera.h
   src/render/texture_atlas.cpp
-  src/render/texture_atlas.h src/game_objects/player.cpp src/game_objects/player.h src/vulkan_wrappers/image.cpp src/vulkan_wrappers/image.h src/vulkan_wrappers/image_view.cpp src/vulkan_wrappers/image_view.h src/vulkan_wrappers/sampler.cpp src/vulkan_wrappers/sampler.h src/render/uniform_buffer.h src/utils/aabb.cpp src/utils/aabb.h src/utils/ray.h src/utils/ray.cpp)
+  src/render/texture_atlas.h src/game_objects/player.cpp src/game_objects/player.h src/vulkan_wrappers/image.cpp src/vulkan_wrappers/image.h src/vulkan_wrappers/image_view.cpp src/vulkan_wrappers/image_view.h src/vulkan_wrappers/sampler.cpp src/vulkan_wrappers/sampler.h src/render/uniform_buffer.h src/utils/aabb.cpp src/utils/aabb.h src/utils/ray.h src/utils/ray.cpp src/utils/settings.h)
 
 add_executable(${CURRENT_PROJECT_NAME}
   ${PROJECT_SOURCES}

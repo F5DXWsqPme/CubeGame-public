@@ -16,5 +16,5 @@ VOID vulkan_validation::Check( const VkResult Result, const std::string_view &Me
 #if ENABLE_VULKAN_FUNCTION_RESULT_VALIDATION
   if (Result != VK_SUCCESS)
     throw std::runtime_error("Vulkan error: "s + Message.data());
-#endif
+#endif /* ENABLE_VULKAN_FUNCTION_RESULT_VALIDATION */
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Created with TexturePacker https://www.codeandweb.com/texturepacker -->
-<!-- $TexturePacker:SmartUpdate:f147015f916fa8e1a23e28aac9d805f7:acfa092407a035e912de78399fd71dba:cde709370900f12288f3449eded86f07$ -->
+<!-- $TexturePacker:SmartUpdate:6aeaaa9fa4a66f989c701065c265c92c:3d8c07bf31eba623e8b96eebac356cce:cde709370900f12288f3449eded86f07$ -->
 <!--Format:
 n  => name of the sprite
 x  => sprite x pos in texture
@@ -20,9 +20,9 @@ verticesUV => points in sheet coordinate system (x0,y0,x1,y1,x2,y2, ...)
 triangles  => sprite triangulation, 3 vertex indices per triangle
 -->
 <TextureAtlas imagePath="atlas.png" width="80" height="16">
-    <sprite n="glassn.png" x="0" y="0" w="16" h="16"/>
-    <sprite n="grass_down.png" x="16" y="0" w="16" h="16"/>
-    <sprite n="grass_side.png" x="32" y="0" w="16" h="16"/>
-    <sprite n="grass_up.png" x="48" y="0" w="16" h="16"/>
-    <sprite n="stone.png" x="64" y="0" w="16" h="16"/>
+    <sprite n="glass.png" x="0" y="0" w="16" h="16"/>
+    <sprite n="grass_down.bmp" x="16" y="0" w="16" h="16"/>
+    <sprite n="grass_side.bmp" x="32" y="0" w="16" h="16"/>
+    <sprite n="grass_up.bmp" x="48" y="0" w="16" h="16"/>
+    <sprite n="stone.bmp" x="64" y="0" w="16" h="16"/>
 </TextureAtlas>

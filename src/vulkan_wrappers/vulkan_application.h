@@ -5,7 +5,7 @@
 #include <vector>
 #include <optional>
 
-#include "def.h"
+#include "utils/settings.h"
 
 /**
  * \brief Vulkan application class
@@ -15,8 +15,9 @@ class vulkan_application
 public:
   /**
    * \brief Class constructor
+   * \param[in] Settings Application settings
    */
-  vulkan_application( VOID );
+  vulkan_application( const settings &Settings );
 
   /**
    * \brief Initialize vulkan application structure
@@ -168,6 +169,9 @@ private:
 
   /** Debug messenger */
   VkDebugUtilsMessengerEXT DebugMessenger;
+
+  /** Application settings */
+  const settings &Settings;
 };
 
 #endif // __vulkan_application_h_

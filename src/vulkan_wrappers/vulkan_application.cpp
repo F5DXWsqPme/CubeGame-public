@@ -3,27 +3,18 @@
 #include <vector>
 #include <algorithm>
 
-#include "def.h"
-
-#if ENABLE_VULKAN_GLFW_SURFACE
 #include "ext/volk/volk.h"
 #include "ext/glfw/include/GLFW/glfw3.h"
 
-#include "glfw_surface.h"
-#include "render/glfw_window.h"
-#endif /* ENABLE_VULKAN_GLFW_SURFACE */
-
-#if ENABLE_VULKAN_FULLSCREEN_SURFACE_EXTENSION
 #include "fullscreen_surface.h"
-#endif /* ENABLE_VULKAN_GLFW_SURFACE */
-
 #include "vulkan_application.h"
 #include "vulkan_validation.h"
 
 /**
  * \brief Class constructor
+ * \param[in] Settings Application settings
  */
-vulkan_application::vulkan_application( VOID )
+vulkan_application::vulkan_application( const settings &Settings ) : Settings(Settings)
 {
   Init();
 }
@@ -48,10 +39,9 @@ VOID vulkan_application::InitApplication( UINT SelectedPhysicalDeviceId, VkSurfa
  */
 vulkan_application::~vulkan_application( VOID )
 {
-#if ENABLE_VULKAN_VALIDATION_LAYER
-  if (DebugMessenger != VK_NULL_HANDLE)
-    vkDestroyDebugUtilsMessengerEXT(Instance, DebugMessenger, nullptr);
-#endif /* ENABLE_VULKAN_VALIDATION_LAYER */
+  if (Settings.EnableVulkanValidationLayer)
+    if (DebugMessenger != VK_NULL_HANDLE)
+      vkDestroyDebugUtilsMessengerEXT(Instance, DebugMessenger, nullptr);
 
   if (Device != VK_NULL_HANDLE)
     vkDestroyDevice(Device, nullptr);
@@ -88,12 +78,13 @@ VOID vulkan_application::Init( VOID )
   InstanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   InstanceCreateInfo.pApplicationInfo = &AppInfo;
 
-#if ENABLE_VULKAN_VALIDATION_LAYER
-  const CHAR *ValidationLayerName = "VK_LAYER_KHRONOS_validation";
+  if (Settings.EnableVulkanValidationLayer)
+  {
+    const CHAR *ValidationLayerName = "VK_LAYER_KHRONOS_validation";
 
-  InstanceCreateInfo.enabledLayerCount = 1;
-  InstanceCreateInfo.ppEnabledLayerNames = &ValidationLayerName;
-#endif
+    InstanceCreateInfo.enabledLayerCount = 1;
+    InstanceCreateInfo.ppEnabledLayerNames = &ValidationLayerName;
+  }
 
   {
     UINT32 NumberOfSupportedExtensions = 0;
@@ -118,21 +109,20 @@ VOID vulkan_application::Init( VOID )
 
   std::vector<const CHAR *> ExtensionsNames;
 
-#if ENABLE_VULKAN_FULLSCREEN_SURFACE_EXTENSION
+  if (Settings.EnableVulkanFullscreenSurfaceExtension)
   {
-    const CHAR *SurfaceExtensionName = "VK_KHR_surface";
-    const CHAR *DisplayExtensionName = "VK_KHR_display";
-    //const CHAR *SwapchainExtensionName = "VK_KHR_swapchain";
-    //const CHAR *DisplaySwapchainExtensionName = "VK_KHR_display_swapchain";
+    const CHAR *SurfaceExtensionName = VK_KHR_SURFACE_EXTENSION_NAME;
+    const CHAR *DisplayExtensionName = VK_KHR_DISPLAY_EXTENSION_NAME;
+    //const CHAR *SwapchainExtensionName = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    //const CHAR *DisplaySwapchainExtensionName = VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME;
 
     ExtensionsNames.push_back(SurfaceExtensionName);
     ExtensionsNames.push_back(DisplayExtensionName);
     //ExtensionsNames.push_back(SwapchainExtensionName);
     //ExtensionsNames.push_back(DisplaySwapchainExtensionName);
   }
-#endif /* ENABLE_VULKAN_FULLSCREEN_SURFACE_EXTENSION */
 
-#if ENABLE_VULKAN_GLFW_SURFACE
+  if (Settings.EnableVulkanGLFWSurface)
   {
     UINT32 NumberOfGLFWExtensions = 0;
     const CHAR **Extensions = glfwGetRequiredInstanceExtensions(&NumberOfGLFWExtensions);
@@ -140,11 +130,9 @@ VOID vulkan_application::Init( VOID )
     for (UINT32 i = 0; i < NumberOfGLFWExtensions; i++)
       ExtensionsNames.push_back(Extensions[i]);
   }
-#endif /* ENABLE_VULKAN_GLFW_SURFACE */
 
-#if ENABLE_VULKAN_VALIDATION_LAYER
-  ExtensionsNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif
+  if (Settings.EnableVulkanValidationLayer)
+    ExtensionsNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
   std::cout << "Required instance extensions:\n";
 
@@ -178,7 +166,7 @@ VOID vulkan_application::Init( VOID )
     vkEnumeratePhysicalDevices(Instance, &NumberOfPhysicalDevices, PhysicalDevices.data()),
     "physical devices enumeration failed");
 
-#if ENABLE_VULKAN_VALIDATION_LAYER
+  if (Settings.EnableVulkanValidationLayer)
   {
     VkDebugUtilsMessengerCreateInfoEXT DebugMessengerCreateInfo = {};
 
@@ -196,7 +184,6 @@ VOID vulkan_application::Init( VOID )
       vkCreateDebugUtilsMessengerEXT(Instance, &DebugMessengerCreateInfo, nullptr, &DebugMessenger),
       "debug messenger creation failed");
   }
-#endif
 }
 
 /**
@@ -228,10 +215,10 @@ VOID vulkan_application::CreateLogicalDevice( VOID )
     FamilyIndices.push_back(*ComputeQueueFamilyIndex);
 
   if (GraphicsQueueFamilyIndex)
-    FamilyIndices.push_back(*TransferQueueFamilyIndex);
+    FamilyIndices.push_back(*GraphicsQueueFamilyIndex);
 
   if (PresentationQueueFamilyIndex)
-    FamilyIndices.push_back(*TransferQueueFamilyIndex);
+    FamilyIndices.push_back(*PresentationQueueFamilyIndex);
 
   std::sort(FamilyIndices.begin(), FamilyIndices.end());
   FamilyIndices.erase(std::unique(FamilyIndices.begin(), FamilyIndices.end()), FamilyIndices.end());
@@ -283,29 +270,19 @@ VOID vulkan_application::CreateLogicalDevice( VOID )
 
   std::vector<const CHAR *> ExtensionsNames;
 
-#if ENABLE_VULKAN_PRINTF_EXTENSION
+  if (Settings.EnableVulkanPrintfExtension)
   {
-    const CHAR *PrintfExtensionName = "VK_KHR_shader_non_semantic_info";
+    const CHAR *PrintfExtensionName = VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME;
 
     ExtensionsNames.push_back(PrintfExtensionName);
   }
-#endif /* ENABLE_VULKAN_PRINTF_EXTENSION */
 
-#if ENABLE_VULKAN_FULLSCREEN_SURFACE_EXTENSION
+  if (Settings.EnableVulkanFullscreenSurfaceExtension || Settings.EnableVulkanGLFWSurface)
   {
-    const CHAR *SwapchainExtensionName = "VK_KHR_swapchain";
+    const CHAR *SwapchainExtensionName = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
     ExtensionsNames.push_back(SwapchainExtensionName);
   }
-#endif /* ENABLE_VULKAN_FULLSCREEN_SURFACE_EXTENSION */
-
-#if ENABLE_VULKAN_GLFW_SURFACE
-  {
-    const CHAR *SwapchainExtensionName = "VK_KHR_swapchain";
-
-    ExtensionsNames.push_back(SwapchainExtensionName);
-  }
-#endif /* ENABLE_VULKAN_GLFW_SURFACE */
 
   DeviceCreateInfo.enabledExtensionCount = ExtensionsNames.size();
   DeviceCreateInfo.ppEnabledExtensionNames = ExtensionsNames.data();

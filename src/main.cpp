@@ -26,7 +26,9 @@ INT main( INT ArgC, CHAR **ArgV )
     if (glfwInit() != GLFW_TRUE)
       throw std::runtime_error("GLFW not initialized");
 
-    vulkan_application VkApp;
+    settings Settings;
+
+    vulkan_application VkApp(Settings);
     glfw_window Window("", 800, 600);
     
     glfw_surface Surface(VkApp.GetPhysicalDevice(0), VkApp.GetInstanceId(), Window.GetWindowPtr());
