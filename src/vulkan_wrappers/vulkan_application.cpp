@@ -267,12 +267,12 @@ VOID vulkan_application::CreateLogicalDevice( VOID )
 
     std::cout << std::endl;
   }
-
+                               	
   std::vector<const CHAR *> ExtensionsNames;
 
   if (Settings.EnableVulkanPrintfExtension)
   {
-    const CHAR *PrintfExtensionName = VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME;
+    const CHAR *PrintfExtensionName = "VK_KHR_shader_non_semantic_info";
 
     ExtensionsNames.push_back(PrintfExtensionName);
   }
