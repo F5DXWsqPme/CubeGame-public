@@ -78,13 +78,13 @@ VOID vulkan_application::Init( VOID )
   InstanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   InstanceCreateInfo.pApplicationInfo = &AppInfo;
 
-  if (Settings.EnableVulkanValidationLayer)
-  {
-    const CHAR *ValidationLayerName = "VK_LAYER_KHRONOS_validation";
-
-    InstanceCreateInfo.enabledLayerCount = 1;
-    InstanceCreateInfo.ppEnabledLayerNames = &ValidationLayerName;
-  }
+  //if (Settings.EnableVulkanValidationLayer)
+  //{
+  //  const CHAR *ValidationLayerName = "VK_LAYER_KHRONOS_validation";
+  //
+  //  InstanceCreateInfo.enabledLayerCount = 1;
+  //  InstanceCreateInfo.ppEnabledLayerNames = &ValidationLayerName;
+  //}
 
   {
     UINT32 NumberOfSupportedExtensions = 0;
