@@ -158,8 +158,8 @@ VOID chunks_manager::UpdateBlockSide( INT64 x, INT64 y, INT64 z,
                                       VOID (chunk::*UpdateFunction)( const glm::ivec3 &BlockPos ) )
 {
   std::pair<INT32, INT32> NewChunkPos(
-    floor(x / (DBL)chunk::ChunkSizeX),
-    floor(z / (DBL)chunk::ChunkSizeZ));
+    static_cast<INT32>(std::floor(static_cast<DBL>(x) / chunk::ChunkSizeX)),
+    static_cast<INT32>(std::floor(static_cast<DBL>(z) / chunk::ChunkSizeZ)));
   chunk *NewChunkPtr = ChunkPtr;
   glm::ivec3 NewBlockPos(
     x - NewChunkPos.first * (INT64)chunk::ChunkSizeX,

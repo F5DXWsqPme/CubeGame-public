@@ -78,13 +78,17 @@ VOID vulkan_application::Init( VOID )
   InstanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   InstanceCreateInfo.pApplicationInfo = &AppInfo;
 
-  //if (Settings.EnableVulkanValidationLayer)
-  //{
-  //  const CHAR *ValidationLayerName = "VK_LAYER_KHRONOS_validation";
-  //
-  //  InstanceCreateInfo.enabledLayerCount = 1;
-  //  InstanceCreateInfo.ppEnabledLayerNames = &ValidationLayerName;
-  //}
+  std::vector<const CHAR *> LayersNames;
+
+  if (Settings.EnableVulkanValidationLayer)
+  {
+    const CHAR *ValidationLayerName = "VK_LAYER_KHRONOS_validation";
+
+    LayersNames.push_back(ValidationLayerName);
+  }
+
+  InstanceCreateInfo.enabledLayerCount = LayersNames.size();
+  InstanceCreateInfo.ppEnabledLayerNames = LayersNames.data();
 
   {
     UINT32 NumberOfSupportedExtensions = 0;
@@ -148,8 +152,8 @@ VOID vulkan_application::Init( VOID )
     vkCreateInstance(&InstanceCreateInfo, nullptr, &Instance),
     "instance creation error");
 
-  if (Instance == nullptr)
-    throw std::runtime_error("vkCreateInstance return success code, but instance not created");
+  //if (Instance == nullptr)
+  //  throw std::runtime_error("vkCreateInstance return success code, but instance not created");
 
   volkLoadInstanceOnly(Instance);
 
@@ -298,8 +302,8 @@ VOID vulkan_application::CreateLogicalDevice( VOID )
     vkCreateDevice(PhysicalDevices[*SelectedPhysicalDevice], &DeviceCreateInfo, nullptr, &Device),
     "logical device creation failed");
 
-  if (Device == nullptr)
-    throw std::runtime_error("vkCreateDevice return success code, but device not created");
+  //if (Device == nullptr)
+  //  throw std::runtime_error("vkCreateDevice return success code, but device not created");
 
   volkLoadDevice(Device);
 }

@@ -271,7 +271,8 @@ std::pair<INT32, INT32> player::GetCurrentChunk( VOID )
   std::lock_guard<std::mutex> Lock(PositionMutex);
 
   return
-    std::pair(
-      floorf(Position.x / chunk::ChunkSizeX),
-      floorf(Position.z / chunk::ChunkSizeZ));
+    {
+      static_cast<INT32>(std::floor(Position.x / chunk::ChunkSizeX)),
+      static_cast<INT32>(std::floor(Position.z / chunk::ChunkSizeZ))
+    };
 }

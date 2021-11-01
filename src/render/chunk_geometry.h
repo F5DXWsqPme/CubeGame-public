@@ -268,22 +268,22 @@ private:
   struct BLOCK_INFORMATION
   {
     /** +Y block border index */
-    UINT64 UpOffset = -1;
+    INT64 UpOffset = -1;
 
     /** -Y block border index */
-    UINT64 DownOffset = -1;
+    INT64 DownOffset = -1;
 
     /** +X block border index */
-    UINT64 RightOffset = -1;
+    INT64 RightOffset = -1;
 
     /** -X block border index */
-    UINT64 LeftOffset = -1;
+    INT64 LeftOffset = -1;
 
     /** +Z block border index */
-    UINT64 FrontOffset = -1;
+    INT64 FrontOffset = -1;
 
     /** -Z block border index */
-    UINT64 BackOffset = -1;
+    INT64 BackOffset = -1;
   };
 
   /**
@@ -292,10 +292,10 @@ private:
   struct INDEX_INFORMATION
   {
     /** Block identifier */
-    UINT64 BlockId = -1;
+    INT64 BlockId = -1;
 
     /** Pointer to border index in block information */
-    UINT64 BLOCK_INFORMATION::*Offset = nullptr;
+    INT64 BLOCK_INFORMATION::*Offset = nullptr;
   };
 
   /** Blocks information */
